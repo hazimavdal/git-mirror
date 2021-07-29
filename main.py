@@ -7,7 +7,7 @@ import argparse
 import subprocess as proc
 from logging import handlers
 
-APP_NAME = "git-mirror-script"
+APP_NAME = "git-mirror"
 
 
 def make_parents(filename, dir=False):
