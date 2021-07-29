@@ -39,6 +39,9 @@ def raise_alert(message):
 
 
 def run_command(cmd, *args, cwd=None):
+    if cwd is not None and len(cwd.strip()) == 0:
+        cwd = "."
+
     try:
         exec = proc.run([cmd] + list(args),
                         cwd=cwd,
@@ -116,41 +119,44 @@ class App:
         return success
 
 
-def load_mappings(filename):
+def load_manifest(filename):
     repos = {}
 
-    with open(filename) as f:
-        repos = json.load(f)
+    try:
+        with open(filename) as f:
+            repos = json.load(f)
+    except Exception as err:
+        return None, err
 
     for repo, man in repos.items():
         if type(man) is not dict:
-            raise Exception(f"expected '{repo}' repo definition to be a map, got {type(man).__name__}")
+            return None, Exception(f"expected '{repo}' repo definition to be a map, got {type(man).__name__}")
 
         if "origin" not in man:
-            raise Exception(f"missing 'origin' field from '{repo}' repo definition")
+            return None, Exception(f"missing 'origin' field from '{repo}' repo definition")
 
         origin_tau = type(man["origin"])
         if origin_tau is not str:
-            raise Exception(f"expected 'origin' field of '{repo}' repo to be a string, got {origin_tau.__name__}")
+            return None, Exception(f"expected 'origin' field of '{repo}' repo to be a string, got {origin_tau.__name__}")
 
         if "replicas" not in man:
-            raise Exception(f"missing 'replicas' field from '{repo}' repo definition")
+            return None, Exception(f"missing 'replicas' field from '{repo}' repo definition")
 
         replicas_tau = type(man["replicas"])
         if replicas_tau is not dict:
-            raise Exception(f"expected 'replicas' field of '{repo}' repo to be a map, got {replicas_tau.__name__}")
+            return None, Exception(f"expected 'replicas' field of '{repo}' repo to be a map, got {replicas_tau.__name__}")
 
         for k, v in man["replicas"].items():
             if type(v) is not str:
-                raise Exception(f"expected replica '{k}' of '{repo}' repo to be a string, got {type(v).__name__}")
+                return None, Exception(f"expected replica '{k}' of '{repo}' repo to be a string, got {type(v).__name__}")
 
-    return repos
+    return repos, None
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Automate repo mirroring')
 
-    parser.add_argument('-f', '--repo-file', default="repos.json")
+    parser.add_argument('-m', '--manifest', default="repos.json")
     parser.add_argument('-d', '--repo-dir', default=".repos")
     parser.add_argument('-v', '--log-level', default="info")
     parser.add_argument('-l', '--log-file', default=f".logs/{APP_NAME}.log")
@@ -170,7 +176,22 @@ if __name__ == "__main__":
     errors = 0
 
     try:
-        repos = load_mappings(args.repo_file)
+        repos, err = load_manifest(args.manifest)
+        if err is not None:
+            logger.fatal(f"cannot load manifest file due to err=[{err}]")
+            sys.exit(1)
+
+        # If the manifest is source-controlled, pull the latest
+        manifest_repo = os.path.dirname(args.manifest) or '.'
+        _, err = run_command("ls", ".git", cwd=manifest_repo)
+        if err is None:
+            logger.info("manifest is located in a git repository. Will try to update it")
+            output, err = run_command("git", "pull", cwd=manifest_repo)
+            if err is not None:
+                app.log_cmd_err("couldn't pull the manifest repo", output, err)
+            else:
+                logger.info("updated manifest repo")
+
         make_parents(args.repo_dir, True)
 
         for repo, man in repos.items():
