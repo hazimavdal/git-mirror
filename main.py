@@ -172,6 +172,10 @@ if __name__ == "__main__":
 
             repo_path = os.path.join(args.repo_dir, repo)
 
+            if man.get("skip"):
+                logger.info(f"skipping repo '{repo}'")
+                continue
+
             if not os.path.exists(repo_path):
                 if not app.create_mirror(args.repo_dir, repo, origin):
                     errors += 1
