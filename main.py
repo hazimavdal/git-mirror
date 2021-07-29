@@ -181,9 +181,9 @@ if __name__ == "__main__":
                     errors += 1
                     continue
 
-                for name, url in replicas.items():
-                    if not app.add_target(repo_path, name, url):
-                        errors += 1
+            for name, url in replicas.items():
+                if not app.add_target(repo_path, name, url):
+                    errors += 1
 
             if not app.sync(repo_path, replicas.keys()):
                 errors += 1
