@@ -46,7 +46,7 @@ def run_command(cmd, *args, cwd=None):
                         stderr=proc.PIPE,
                         universal_newlines=True)
     except Exception as err:
-        return {"stdout": None, "stderr": None}, err
+        return {"stdout": "", "stderr": ""}, err
 
     err = None
     if exec.returncode != 0:
@@ -74,6 +74,13 @@ class App:
         return True
 
     def add_target(self, repo_path, target_name, target_url):
+        output, err = run_command("git", "config", "--get", f"remote.{target_name}.url", cwd=repo_path)
+
+        # Check if this target with the same URL already exists
+        if err is None and output["stdout"].split('\n')[0] == target_url:
+            self.log.debug(f"target '{target_name}' already exists in '{repo_path}'")
+            return True
+
         output, err = run_command("git", "remote", "add",
                                   "--mirror=push", target_name,
                                   target_url, cwd=repo_path)
