@@ -208,6 +208,8 @@ if __name__ == "__main__":
                 if not app.create_mirror(args.repo_dir, repo, origin):
                     errors += 1
                     continue
+            else:
+                logger.debug(f"repo '{repo}' is already cloned at '{repo_path}'")
 
             for name, url in replicas.items():
                 if not app.add_target(repo_path, name, url):
