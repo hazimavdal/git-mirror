@@ -72,7 +72,7 @@ class App:
             self.log_cmd_err(f"cannot create mirror for '{repo}'", output, err)
             return False
 
-        self.log.info(f"created mirror repo '{repo}' with origin='{origin}' in '{mrepos_dirirrors_dir}'")
+        self.log.info(f"created mirror repo '{repo}' with origin='{origin}' in '{repos_dir}'")
 
         return True
 
