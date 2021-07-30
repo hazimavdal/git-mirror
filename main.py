@@ -65,14 +65,14 @@ class App:
     def log_cmd_err(self, msg, output, err):
         self.log.error(f"{msg} due to err=[{err}]. stdout=[{output['stdout']}], stderr=[{output['stderr']}]")
 
-    def create_mirror(self, mirrors_dir, repo, origin):
-        output, err = run_command("git", "clone", "--mirror", origin, repo, cwd=mirrors_dir)
+    def create_mirror(self, repos_dir, repo, origin):
+        output, err = run_command("git", "clone", "--mirror", origin, repo, cwd=repos_dir)
 
         if err is not None:
             self.log_cmd_err(f"cannot create mirror for '{repo}'", output, err)
             return False
 
-        self.log.info(f"created mirror repo '{repo}' with origin='{origin}'")
+        self.log.info(f"created mirror repo '{repo}' with origin='{origin}' in '{mrepos_dirirrors_dir}'")
 
         return True
 
