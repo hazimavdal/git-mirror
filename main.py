@@ -115,7 +115,7 @@ class App:
 
         self.log.info(f"cloning mirror repo '{repo_info.repo_name}' with origin='{repo_info.origin}' into '{repo_info.repo_dir}'")
 
-        output, err = self.run_command("git", "clone", "--mirror", repo_info.origin, repo, cwd=repo_info.repo_dir)
+        output, err = self.run_command("git", "clone", "--mirror", repo_info.origin, repo_info.repo_name, cwd=repo_info.repo_dir)
 
         if err is not None:
             self.log_cmd_err(f"cannot clone mirror for '{repo_info.repo_name}'", output, err)
