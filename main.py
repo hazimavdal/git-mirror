@@ -273,7 +273,7 @@ if __name__ == "__main__":
                     continue
             else:
                 if repo_info.is_alias:
-                    logger.info(f"using alias '{repo_info.repo_name}' of '{repo_main_name}'")
+                    logger.info(f"aliasing '{repo_main_name}' as '{repo_info.repo_name}'")
 
                 logger.debug(f"repo '{repo_info.repo_name}' is already cloned at '{repo_info.repo_path}'")
 
