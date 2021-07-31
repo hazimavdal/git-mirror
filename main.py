@@ -103,16 +103,22 @@ class App:
         return True
 
     def sync(self, repo_path, targets):
+        self.log.info(f"fetching '{repo_path}' origin")
+
+        start_time = datetime.now()
         output, err = run_command("git",  "fetch", "--prune", "origin", cwd=repo_path)
 
         if err is not None:
             self.log_cmd_err(f"cannot fetch '{repo_path}'", output, err)
             return False
 
-        self.log.info(f"fetched '{repo_path}'")
+        self.log.info(f"fetched '{repo_path}'. Took '{str(datetime.now()-start_time)}'")
 
         success = True
         for target in targets:
+            self.log.info(f"pushing '{target}' target of '{repo_path}'")
+
+            start_time = datetime.now()
             output, err = run_command("git", "push", "--mirror", target, cwd=repo_path)
 
             if err is not None:
@@ -120,7 +126,7 @@ class App:
                 success = False
                 continue
 
-            self.log.info(f"pushed target '{target}' of '{repo_path}'")
+            self.log.info(f"pushed target '{target}' of '{repo_path}'. Took '{str(datetime.now()-start_time)}'")
 
         return success
 
