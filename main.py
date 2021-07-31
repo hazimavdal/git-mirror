@@ -39,94 +39,140 @@ def raise_alert(message):
     pass
 
 
-def run_command(cmd, *args, cwd=None):
-    if cwd is not None and len(cwd.strip()) == 0:
-        cwd = "."
+class RepoInfo:
+    def __init__(self):
+        self.repo_dir = None
+        self.repo_name = None
+        self.repo_path = None
+        self.exists = False
+        self.is_alias = False
 
-    try:
-        exec = proc.run([cmd] + list(args),
-                        cwd=cwd,
-                        stdout=proc.PIPE,
-                        stderr=proc.PIPE,
-                        universal_newlines=True)
-    except Exception as err:
-        return {"stdout": "", "stderr": ""}, err
-
-    err = None
-    if exec.returncode != 0:
-        err = Exception(f"'{cmd}' command exited with status {exec.returncode}")
-
-    return {'stdout': exec.stdout, 'stderr': exec.stderr}, err
+        self.origin = None
+        self.targets = []
 
 
 class App:
-    def __init__(self, logger):
+    def __init__(self, logger, dry_run):
         self.log = logger
+        self.dry_run = dry_run
+
+        if self.dry_run:
+            self.log.info("starting in dry-run mode")
+
+    def run_command(self, cmd, *args, cwd=None):
+        if self.dry_run:
+            self.log.info(f"dry running command: {[cmd] + list(args)}")
+            return {"stdout": "", "stderr": ""}, None
+
+        try:
+            if cwd is not None and len(cwd.strip()) == 0:
+                cwd = "."
+
+            exec = proc.run([cmd] + list(args),
+                            cwd=cwd,
+                            stdout=proc.PIPE,
+                            stderr=proc.PIPE,
+                            universal_newlines=True)
+        except Exception as err:
+            return {"stdout": "", "stderr": ""}, err
+
+        err = None
+        if exec.returncode != 0:
+            err = Exception(f"'{cmd}' command exited with status {exec.returncode}")
+
+        return {'stdout': exec.stdout, 'stderr': exec.stderr}, err
 
     def log_cmd_err(self, msg, output, err):
         self.log.error(f"{msg} due to err=[{err}]. stdout=[{output['stdout']}], stderr=[{output['stderr']}]")
 
-    def clone_mirror(self, repos_dir, repo, origin):
+    def locate_repo(self, repo_dir, repo_name, aliases):
+        info = RepoInfo()
+
+        info.repo_dir = repo_dir
+        info.repo_name = repo_name
+        info.repo_path = os.path.join(repo_dir, repo_name)
+        info.exists = os.path.exists(info.repo_path)
+        info.is_alias = False
+
+        if info.exists:
+            return info
+
+        for name in aliases:
+            repo_path = os.path.join(repo_dir, name)
+
+            if os.path.exists(repo_path):
+                info.repo_name = name
+                info.repo_path = repo_path
+                info.is_alias = True
+                info.exists = True
+
+                return info
+
+        return info
+
+    def clone_mirror(self, repo_info):
         start_time = datetime.now()
 
-        self.log.info(f"cloning mirror repo '{repo}' with origin='{origin}' into '{repos_dir}'")
+        self.log.info(f"cloning mirror repo '{repo_info.repo_name}' with origin='{repo_info.origin}' into '{repo_info.repo_dir}'")
 
-        output, err = run_command("git", "clone", "--mirror", origin, repo, cwd=repos_dir)
+        output, err = self.run_command("git", "clone", "--mirror", repo_info.origin, repo, cwd=repo_info.repo_dir)
 
         if err is not None:
-            self.log_cmd_err(f"cannot clone mirror for '{repo}'", output, err)
+            self.log_cmd_err(f"cannot clone mirror for '{repo_info.repo_name}'", output, err)
             return False
 
         duration = str(datetime.now() - start_time)
-        self.log.info(f"cloned mirror repo '{repo}' with origin='{origin}' into '{repos_dir}'. Took '{duration}'")
+        self.log.info(f"cloned mirror repo '{repo_info.repo_name}' with origin='{repo_info.origin}' into '{repo_info.repo_dir}'. Took '{duration}'")
 
         return True
 
-    def add_target(self, repo_path, target_name, target_url):
-        output, err = run_command("git", "config", "--get", f"remote.{target_name}.url", cwd=repo_path)
+    def add_target(self, repo_info, target_name, target_url):
+        output, err = self.run_command("git", "config", "--get", f"remote.{target_name}.url", cwd=repo_info.repo_path)
 
         # Check if this target with the same URL already exists
         if err is None and output["stdout"].split('\n')[0] == target_url:
-            self.log.debug(f"target '{target_name}' already exists in '{repo_path}'")
+            self.log.debug(f"target '{target_name}' already exists in '{repo_info.repo_path}'")
             return True
 
-        output, err = run_command("git", "remote", "add",
-                                  "--mirror=push", target_name,
-                                  target_url, cwd=repo_path)
+        output, err = self.run_command("git", "remote", "add",
+                                       "--mirror=push", target_name,
+                                       target_url, cwd=repo_info.repo_path)
 
         if err is not None:
-            self.log_cmd_err(f"cannot add target '{target_name}' to '{repo}'", output, err)
+            self.log_cmd_err(f"cannot add target '{target_name}' to '{repo_info.repo_path}'", output, err)
             return False
 
-        self.log.info(f"added target '{target_name}:{target_url}' to '{repo}'")
+        self.log.info(f"added target '{target_name}:{target_url}' to '{repo_info.repo_path}'")
+
+        repo_info.targets.append(target_name)
 
         return True
 
-    def sync(self, repo_path, targets):
-        self.log.info(f"fetching '{repo_path}' origin")
+    def sync(self, repo_info):
+        self.log.info(f"fetching '{repo_info.repo_path}' origin")
 
         start_time = datetime.now()
-        output, err = run_command("git",  "fetch", "--prune", "origin", cwd=repo_path)
+        output, err = self.run_command("git",  "fetch", "--prune", "origin", cwd=repo_info.repo_path)
 
         if err is not None:
-            self.log_cmd_err(f"cannot fetch '{repo_path}'", output, err)
+            self.log_cmd_err(f"cannot fetch '{repo_info.repo_path}'", output, err)
             return False
 
-        self.log.info(f"fetched '{repo_path}'. Took '{str(datetime.now()-start_time)}'")
+        self.log.info(f"fetched '{repo_info.repo_path}'. Took '{str(datetime.now()-start_time)}'")
 
         success = True
-        for target in targets:
-            self.log.info(f"pushing '{target}' target of '{repo_path}'")
+        for target in repo_info.targets:
+            self.log.info(f"pushing '{target}' target of '{repo_info.repo_path}'")
 
             start_time = datetime.now()
-            output, err = run_command("git", "push", "--mirror", target, cwd=repo_path)
+            output, err = self.run_command("git", "push", "--mirror", target, cwd=repo_info.repo_path)
 
             if err is not None:
-                self.log_cmd_err(f"cannot push target '{target}' of '{repo}'", output, err)
+                self.log_cmd_err(f"cannot push target '{target}' of '{repo_info.repo_path}'", output, err)
                 success = False
                 continue
 
-            self.log.info(f"pushed target '{target}' of '{repo_path}'. Took '{str(datetime.now()-start_time)}'")
+            self.log.info(f"pushed target '{target}' of '{repo_info.repo_path}'. Took '{str(datetime.now()-start_time)}'")
 
         return success
 
@@ -172,6 +218,7 @@ if __name__ == "__main__":
     parser.add_argument('-d', '--repo-dir', default=".repos")
     parser.add_argument('-v', '--log-level', default="info")
     parser.add_argument('-l', '--log-file', default=f".logs/{APP_NAME}.log")
+    parser.add_argument('--dry-run', action="store_true")
 
     args = parser.parse_args()
 
@@ -184,7 +231,7 @@ if __name__ == "__main__":
 
     logger.setLevel(log_level)
 
-    app = App(logger)
+    app = App(logger, args.dry_run)
     errors = 0
 
     try:
@@ -195,10 +242,10 @@ if __name__ == "__main__":
 
         # If the manifest is source-controlled, pull the latest
         manifest_repo = os.path.dirname(args.manifest) or '.'
-        _, err = run_command("ls", ".git", cwd=manifest_repo)
+        _, err = app.run_command("ls", ".git", cwd=manifest_repo)
         if err is None:
             logger.info("manifest is located in a git repository. Will try to update it")
-            output, err = run_command("git", "pull", cwd=manifest_repo)
+            output, err = app.run_command("git", "pull", cwd=manifest_repo)
             if err is not None:
                 app.log_cmd_err("couldn't pull the manifest repo", output, err)
             else:
@@ -206,28 +253,35 @@ if __name__ == "__main__":
 
         make_parents(args.repo_dir, True)
 
-        for repo, man in repos.items():
+        for repo_main_name, man in repos.items():
             origin = man["origin"]
             replicas = man["replicas"]
-
-            repo_path = os.path.join(args.repo_dir, repo)
+            aliases = man.get("aliases", [])
 
             if man.get("skip"):
-                logger.info(f"skipping repo '{repo}'")
+                logger.info(f"skipping repo '{repo_main_name}'")
                 continue
 
-            if not os.path.exists(repo_path):
-                if not app.clone_mirror(args.repo_dir, repo, origin):
+            repo_info = app.locate_repo(args.repo_dir, repo_main_name, aliases)
+            repo_info.origin = origin
+
+            if not repo_info.exists:
+                logger.debug(f"repo '{repo_info.repo_name}' does not exist and no aliases found. Trying to clone it")
+
+                if not app.clone_mirror(repo_info):
                     errors += 1
                     continue
             else:
-                logger.debug(f"repo '{repo}' is already cloned at '{repo_path}'")
+                if repo_info.is_alias:
+                    logger.info(f"using alias '{repo_info.repo_name}' of '{repo_main_name}'")
+
+                logger.debug(f"repo '{repo_info.repo_name}' is already cloned at '{repo_info.repo_path}'")
 
             for name, url in replicas.items():
-                if not app.add_target(repo_path, name, url):
+                if not app.add_target(repo_info, name, url):
                     errors += 1
 
-            if not app.sync(repo_path, replicas.keys()):
+            if not app.sync(repo_info):
                 errors += 1
 
         sys.exit(errors)
