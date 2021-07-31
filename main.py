@@ -6,6 +6,7 @@ import logging
 import argparse
 import subprocess as proc
 from logging import handlers
+from datetime import datetime
 
 APP_NAME = "git-mirror"
 
@@ -65,14 +66,19 @@ class App:
     def log_cmd_err(self, msg, output, err):
         self.log.error(f"{msg} due to err=[{err}]. stdout=[{output['stdout']}], stderr=[{output['stderr']}]")
 
-    def create_mirror(self, repos_dir, repo, origin):
+    def clone_mirror(self, repos_dir, repo, origin):
+        start_time = datetime.now()
+
+        self.log.info(f"cloning mirror repo '{repo}' with origin='{origin}' into '{repos_dir}'")
+
         output, err = run_command("git", "clone", "--mirror", origin, repo, cwd=repos_dir)
 
         if err is not None:
-            self.log_cmd_err(f"cannot create mirror for '{repo}'", output, err)
+            self.log_cmd_err(f"cannot clone mirror for '{repo}'", output, err)
             return False
 
-        self.log.info(f"created mirror repo '{repo}' with origin='{origin}' in '{repos_dir}'")
+        duration = str(datetime.now() - start_time)
+        self.log.info(f"cloned mirror repo '{repo}' with origin='{origin}' into '{repos_dir}'. Operation took '{duration}'")
 
         return True
 
@@ -205,7 +211,7 @@ if __name__ == "__main__":
                 continue
 
             if not os.path.exists(repo_path):
-                if not app.create_mirror(args.repo_dir, repo, origin):
+                if not app.clone_mirror(args.repo_dir, repo, origin):
                     errors += 1
                     continue
             else:
