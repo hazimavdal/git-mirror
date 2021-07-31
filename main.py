@@ -78,7 +78,7 @@ class App:
             return False
 
         duration = str(datetime.now() - start_time)
-        self.log.info(f"cloned mirror repo '{repo}' with origin='{origin}' into '{repos_dir}'. Operation took '{duration}'")
+        self.log.info(f"cloned mirror repo '{repo}' with origin='{origin}' into '{repos_dir}'. Took '{duration}'")
 
         return True
 
