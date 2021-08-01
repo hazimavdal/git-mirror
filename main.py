@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 import os
+import re
 import sys
 import json
 import logging
@@ -84,6 +85,19 @@ class App:
 
     def log_cmd_err(self, msg, output, err):
         self.log.error(f"{msg} due to err=[{err}]. stdout=[{output['stdout']}], stderr=[{output['stderr']}]")
+
+    def ls_remote(self, repo, ref="HEAD"):
+        output, err = app.run_command("git", "ls-remote", repo, ref)
+
+        if err != None:
+            return None
+
+        match = re.match(r"([a-f0-9]{40})", output["stdout"])
+
+        if not match:
+            return None
+
+        return match.group(0)
 
     def locate_repo(self, repo_dir, repo_name, aliases):
         info = RepoInfo()
@@ -242,7 +256,7 @@ if __name__ == "__main__":
 
         # If the manifest is source-controlled, pull the latest
         manifest_repo = os.path.dirname(args.manifest) or '.'
-        _, err = app.run_command("ls", ".git", cwd=manifest_repo)
+        _, err = app.run_command("test", "-d", ".git", cwd=manifest_repo)
         if err is None:
             logger.info("manifest is located in a git repository. Will try to update it")
             output, err = app.run_command("git", "pull", cwd=manifest_repo)
