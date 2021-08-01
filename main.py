@@ -262,27 +262,46 @@ def do_mirror(repo_info, app, logger, errors):
     return True
 
 
-def do_integrity(repo_info):
-    pass
+def do_integrity(repo_info, app, logger, errors):
+    origin_hash = app.ls_remote(repo_info.origin)
+
+    for name, url in repo_info.replicas.items():
+        replica_hash = app.ls_remote(url)
+        if replica_hash != origin_hash:
+            errors += 1
+            msg = f"head of repo '{repo_info.repo_name}' is at '{origin_hash}'"
+            msg += f" but its replica '{name}' is at '{replica_hash}'"
+            logger.error(msg)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Automate repo mirroring')
+    root = argparse.ArgumentParser(description='Automate repo mirroring')
 
-    parser.add_argument('-m', '--manifest', default="repos.json")
-    parser.add_argument('-d', '--repo-dir', default=".repos")
-    parser.add_argument('-v', '--log-level', default="info")
-    parser.add_argument('-l', '--log-file', default=f".logs/{APP_NAME}.log")
-    parser.add_argument('--dry-run', action="store_true")
+    sub_parsers = root.add_subparsers()
 
-    args = parser.parse_args()
+    parent_parser = argparse.ArgumentParser(add_help=False)
+
+    parent_parser.add_argument('-u', '--update-manifest', action="store_true")
+    parent_parser.add_argument('-m', '--manifest', default="repos.json")
+    parent_parser.add_argument('-v', '--log-level', default="info")
+    parent_parser.add_argument('-l', '--log-file', default=f".logs/{APP_NAME}.log")
+    parent_parser.add_argument('--dry-run', action="store_true")
+
+    mirror_parser = sub_parsers.add_parser("mirror", parents=[parent_parser])
+    mirror_parser.add_argument('-d', '--repo-dir', default=".repos")
+    mirror_parser.set_defaults(func=do_mirror)
+
+    integrity_parser = sub_parsers.add_parser("integrity", parents=[parent_parser])
+    integrity_parser.set_defaults(func=do_integrity)
+
+    args = root.parse_args()
 
     logger = get_logger(args.log_file)
 
     log_level = args.log_level.upper()
     if log_level not in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']:
         log_level = "INFO"
-        print(f"log level value '{args.log_level}' is invalid. Setting it to INFO")
+        print(f"log level value '{args.log_level}' is invalid. Setting it to [{log_level]]")
 
     logger.setLevel(log_level)
 
@@ -295,21 +314,24 @@ if __name__ == "__main__":
             logger.fatal(f"cannot load manifest file due to err=[{err}]")
             sys.exit(1)
 
-        # If the manifest is source-controlled, pull the latest
-        manifest_repo = os.path.dirname(args.manifest) or '.'
-        _, err = app.run_command("test", "-d", ".git", cwd=manifest_repo)
-        if err is None:
-            logger.info("manifest is located in a git repository. Will try to update it")
-            output, err = app.run_command("git", "pull", cwd=manifest_repo)
-            if err is not None:
-                app.log_cmd_err("couldn't pull the manifest repo", output, err)
-            else:
-                logger.info("updated manifest repo")
+        if args.update_manifest:
+            # If the manifest is source-controlled, pull the latest
+            manifest_repo = os.path.dirname(args.manifest) or '.'
+            _, err = app.run_command("test", "-d", ".git", cwd=manifest_repo)
+            if err is None:
+                logger.info("manifest is located in a git repository. Will try to update it")
+                output, err = app.run_command("git", "pull", cwd=manifest_repo)
+                if err is not None:
+                    app.log_cmd_err("couldn't pull the manifest repo", output, err)
+                else:
+                    logger.info("updated manifest repo")
 
-        make_parents(args.repo_dir, True)
+        if getattr(args, 'repo_dir', None):
+            make_parents(args.repo_dir, True)
 
         errors = 0
-        manf(repos, do_mirror, app, logger, errors)
+        manf(repos, args.func, app, logger, errors)
+
         sys.exit(errors)
     except Exception as err:
         logger.error(err)
