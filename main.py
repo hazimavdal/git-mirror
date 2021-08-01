@@ -49,7 +49,8 @@ class RepoInfo:
         self.is_alias = False
 
         self.origin = None
-        self.targets = []
+        self.replicas = {}
+        self.aliases = []
 
 
 class App:
@@ -140,25 +141,25 @@ class App:
 
         return True
 
-    def add_target(self, repo_info, target_name, target_url):
-        output, err = self.run_command("git", "config", "--get", f"remote.{target_name}.url", cwd=repo_info.repo_path)
+    def add_replica(self, repo_info, replica_name, replica_url):
+        output, err = self.run_command("git", "config", "--get", f"remote.{replica_name}.url", cwd=repo_info.repo_path)
 
-        # Check if this target with the same URL already exists
-        if err is None and output["stdout"].split('\n')[0] == target_url:
-            self.log.debug(f"target '{target_name}' already exists in '{repo_info.repo_path}'")
+        # Check if this replica with the same URL already exists
+        if err is None and output["stdout"].split('\n')[0] == replica_url:
+            self.log.debug(f"replica '{replica_name}' already exists in '{repo_info.repo_path}'")
             return True
 
         output, err = self.run_command("git", "remote", "add",
-                                       "--mirror=push", target_name,
-                                       target_url, cwd=repo_info.repo_path)
+                                       "--mirror=push", replica_name,
+                                       replica_url, cwd=repo_info.repo_path)
 
         if err is not None:
-            self.log_cmd_err(f"cannot add target '{target_name}' to '{repo_info.repo_path}'", output, err)
+            self.log_cmd_err(f"cannot add replica '{replica_name}' to '{repo_info.repo_path}'", output, err)
             return False
 
-        self.log.info(f"added target '{target_name}:{target_url}' to '{repo_info.repo_path}'")
+        self.log.info(f"added replica '{replica_name}:{replica_url}' to '{repo_info.repo_path}'")
 
-        repo_info.targets.append(target_name)
+        repo_info.replicas[replica_name] = replica_url
 
         return True
 
@@ -175,18 +176,18 @@ class App:
         self.log.info(f"fetched '{repo_info.repo_path}'. Took '{str(datetime.now()-start_time)}'")
 
         success = True
-        for target in repo_info.targets:
-            self.log.info(f"pushing '{target}' target of '{repo_info.repo_path}'")
+        for replica in repo_info.replicas:
+            self.log.info(f"pushing to '{replica}' replica of '{repo_info.repo_path}'")
 
             start_time = datetime.now()
-            output, err = self.run_command("git", "push", "--mirror", target, cwd=repo_info.repo_path)
+            output, err = self.run_command("git", "push", "--mirror", replica, cwd=repo_info.repo_path)
 
             if err is not None:
-                self.log_cmd_err(f"cannot push target '{target}' of '{repo_info.repo_path}'", output, err)
+                self.log_cmd_err(f"cannot push to replica '{replica}' of '{repo_info.repo_path}'", output, err)
                 success = False
                 continue
 
-            self.log.info(f"pushed target '{target}' of '{repo_info.repo_path}'. Took '{str(datetime.now()-start_time)}'")
+            self.log.info(f"pushed to replica '{replica}' of '{repo_info.repo_path}'. Took '{str(datetime.now()-start_time)}'")
 
         return success
 
@@ -292,7 +293,7 @@ if __name__ == "__main__":
                 logger.debug(f"repo '{repo_info.repo_name}' is already cloned at '{repo_info.repo_path}'")
 
             for name, url in replicas.items():
-                if not app.add_target(repo_info, name, url):
+                if not app.add_replica(repo_info, name, url):
                     errors += 1
 
             if not app.sync(repo_info):
