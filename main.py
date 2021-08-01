@@ -100,19 +100,16 @@ class App:
 
         return match.group(0)
 
-    def locate_repo(self, repo_dir, repo_name, aliases):
-        info = RepoInfo()
-
+    def set_alias_info(self, repo_dir, info):
         info.repo_dir = repo_dir
-        info.repo_name = repo_name
-        info.repo_path = os.path.join(repo_dir, repo_name)
+        info.repo_path = os.path.join(repo_dir, info.repo_name)
         info.exists = os.path.exists(info.repo_path)
         info.is_alias = False
 
         if info.exists:
-            return info
+            return
 
-        for name in aliases:
+        for name in info.aliases:
             repo_path = os.path.join(repo_dir, name)
 
             if os.path.exists(repo_path):
@@ -121,9 +118,7 @@ class App:
                 info.is_alias = True
                 info.exists = True
 
-                return info
-
-        return info
+                return
 
     def clone_mirror(self, repo_info):
         start_time = datetime.now()
@@ -171,11 +166,11 @@ class App:
 
         if err is not None:
             self.log_cmd_err(f"cannot fetch '{repo_info.repo_path}'", output, err)
-            return False
+            return 1
 
         self.log.info(f"fetched '{repo_info.repo_path}'. Took '{str(datetime.now()-start_time)}'")
 
-        success = True
+        err_count = 0
         for replica in repo_info.replicas:
             self.log.info(f"pushing to '{replica}' replica of '{repo_info.repo_path}'")
 
@@ -184,12 +179,12 @@ class App:
 
             if err is not None:
                 self.log_cmd_err(f"cannot push to replica '{replica}' of '{repo_info.repo_path}'", output, err)
-                success = False
+                err_count += 1
                 continue
 
             self.log.info(f"pushed to replica '{replica}' of '{repo_info.repo_path}'. Took '{str(datetime.now()-start_time)}'")
 
-        return success
+        return err_count
 
 
 def load_manifest(filename):
@@ -224,6 +219,51 @@ def load_manifest(filename):
                 return None, Exception(f"expected replica '{k}' of '{repo}' repo to be a string, got {type(v).__name__}")
 
     return repos, None
+
+
+def manf(man, f, *args):
+    for repo_name, info in man.items():
+        repo = RepoInfo()
+
+        if info.get("skip"):
+            continue
+
+        repo.repo_name = repo_name
+        repo.origin = info["origin"]
+        repo.replicas = info["replicas"]
+        repo.aliases = info.get("aliases", [])
+
+        if not f(repo, *args):
+            break
+
+
+def do_mirror(repo_info, app, logger, errors):
+    old_name = repo_info.repo_name
+    app.set_alias_info(args.repo_dir, repo_info)
+
+    if not repo_info.exists:
+        logger.debug(f"repo '{repo_info.repo_name}' does not exist and no aliases found. Trying to clone it")
+
+        if not app.clone_mirror(repo_info):
+            errors += 1
+            return True
+    else:
+        if repo_info.is_alias:
+            logger.info(f"aliasing '{old_name}' as '{repo_info.repo_name}'")
+
+        logger.debug(f"repo '{repo_info.repo_name}' is already cloned at '{repo_info.repo_path}'")
+
+    for name, url in repo_info.replicas.items():
+        if not app.add_replica(repo_info, name, url):
+            errors += 1
+
+    errors += app.sync(repo_info)
+
+    return True
+
+
+def do_integrity(repo_info):
+    pass
 
 
 if __name__ == "__main__":
@@ -268,37 +308,8 @@ if __name__ == "__main__":
 
         make_parents(args.repo_dir, True)
 
-        for repo_main_name, man in repos.items():
-            origin = man["origin"]
-            replicas = man["replicas"]
-            aliases = man.get("aliases", [])
-
-            if man.get("skip"):
-                logger.info(f"skipping repo '{repo_main_name}'")
-                continue
-
-            repo_info = app.locate_repo(args.repo_dir, repo_main_name, aliases)
-            repo_info.origin = origin
-
-            if not repo_info.exists:
-                logger.debug(f"repo '{repo_info.repo_name}' does not exist and no aliases found. Trying to clone it")
-
-                if not app.clone_mirror(repo_info):
-                    errors += 1
-                    continue
-            else:
-                if repo_info.is_alias:
-                    logger.info(f"aliasing '{repo_main_name}' as '{repo_info.repo_name}'")
-
-                logger.debug(f"repo '{repo_info.repo_name}' is already cloned at '{repo_info.repo_path}'")
-
-            for name, url in replicas.items():
-                if not app.add_replica(repo_info, name, url):
-                    errors += 1
-
-            if not app.sync(repo_info):
-                errors += 1
-
+        errors = 0
+        manf(repos, do_mirror, app, logger, errors)
         sys.exit(errors)
     except Exception as err:
         logger.error(err)
