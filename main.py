@@ -301,7 +301,7 @@ if __name__ == "__main__":
     log_level = args.log_level.upper()
     if log_level not in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']:
         log_level = "INFO"
-        print(f"log level value '{args.log_level}' is invalid. Setting it to [{log_level]]")
+        print(f"log level value '{args.log_level}' is invalid. Setting it to [{log_level}]")
 
     logger.setLevel(log_level)
 
