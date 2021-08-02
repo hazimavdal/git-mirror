@@ -1,0 +1,4 @@
+boto3==1.18.12
+python_gitlab==2.10.0
+gitlab==1.0.2
+python-decouple==3.4
