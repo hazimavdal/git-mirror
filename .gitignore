@@ -1,3 +1,5 @@
 .vscode/
 .logs/
 .repos/
+__pycache__/
+._*
