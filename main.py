@@ -3,9 +3,12 @@ import os
 import re
 import sys
 import json
+import boto3
+import gitlab
 import logging
 import argparse
 import subprocess as proc
+from decouple import config
 from logging import handlers
 from datetime import datetime
 
@@ -61,6 +64,12 @@ class App:
         if self.dry_run:
             self.log.info("starting in dry-run mode")
 
+        self.codecommit_client = boto3.client("codecommit")
+        self.gitlab_client = gitlab.Gitlab("https://gitlab.com",
+                                           private_token=config("GITLAB_TOKEN"))
+
+        self.gitlab_namespace = config("GITLAB_NAMESPACE")
+
     def run_command(self, cmd, *args, cwd=None):
         if self.dry_run:
             self.log.info(f"dry running command: {[cmd] + list(args)}")
@@ -99,6 +108,23 @@ class App:
             return None
 
         return match.group(0)
+
+    def create_remote(self, url):
+        repo_name = os.path.splitext(os.path.basename(url))[0]
+        try:
+            if "gitlab" in url:
+                self.gitlab_client.projects.create({
+                    "name": repo_name,
+                    "namespace_id": self.gitlab_namespace
+                })
+            elif "codecommit" in url:
+                self.codecommit_client.create_repository(repositoryName=repo_name)
+
+            else:
+                return Exception(f"Unknown replication server at [{url}]")
+
+        except Exception as err:
+            return err
 
     def set_alias_info(self, repo_dir, info):
         info.repo_dir = repo_dir
@@ -144,8 +170,8 @@ class App:
             self.log.debug(f"replica '{replica_name}' already exists in '{repo_info.repo_path}'")
             return True
 
-        output, err = self.run_command("git", "remote", "add",
-                                       "--mirror=push", replica_name,
+        output, err = self.run_command("git", "remote", "set-url",
+                                       replica_name,
                                        replica_url, cwd=repo_info.repo_path)
 
         if err is not None:
@@ -254,6 +280,15 @@ def do_mirror(repo_info, app, logger, errors):
         logger.debug(f"repo '{repo_info.repo_name}' is already cloned at '{repo_info.repo_path}'")
 
     for name, url in repo_info.replicas.items():
+        if app.ls_remote(url) is None:
+            logger.info(f"remote repo [{name}] doesn't exist at [{url}]")
+            err = app.create_remote(url)
+            if err is None:
+                logger.info(f"created remote repo [{name}] at [{url}]")
+            else:
+                logger.info(f"couldn't create remote repo [{name}] at [{url}] due to [{err}]")
+                continue
+
         if not app.add_replica(repo_info, name, url):
             errors += 1
 
@@ -305,10 +340,11 @@ if __name__ == "__main__":
 
     logger.setLevel(log_level)
 
-    app = App(logger, args.dry_run)
     errors = 0
 
     try:
+        app = App(logger, args.dry_run)
+
         repos, err = load_manifest(args.manifest)
         if err is not None:
             logger.fatal(f"cannot load manifest file due to err=[{err}]")
