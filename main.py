@@ -383,6 +383,7 @@ if __name__ == "__main__":
         manf(repos, args.func, app, logger, errors)
 
         sys.exit(errors)
+        logger.info(f"Finished with {errors} errors")
     except Exception as err:
         logger.error(err)
         sys.exit(1)
