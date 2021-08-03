@@ -106,7 +106,7 @@ class App:
         match = re.match(r"([a-f0-9]{40})", output["stdout"])
 
         if not match:
-            return "" # empty repo (no commits)
+            return ""  # empty repo (no commits)
 
         return match.group(0)
 
