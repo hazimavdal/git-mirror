@@ -100,6 +100,7 @@ class App:
         output, err = app.run_command("git", "ls-remote", repo, ref)
 
         if err != None:
+            self.log.debug(f"ls-remote failed with err=[{err}], output=[{output}]")
             return None
 
         match = re.match(r"([a-f0-9]{40})", output["stdout"])
