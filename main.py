@@ -106,7 +106,7 @@ class App:
         match = re.match(r"([a-f0-9]{40})", output["stdout"])
 
         if not match:
-            return None
+            return "" # empty repo (no commits)
 
         return match.group(0)
 
@@ -167,11 +167,24 @@ class App:
         output, err = self.run_command("git", "config", "--get", f"remote.{replica_name}.url", cwd=repo_info.repo_path)
 
         # Check if this replica with the same URL already exists
-        if err is None and output["stdout"].split('\n')[0] == replica_url:
-            self.log.debug(f"replica '{replica_name}' already exists in '{repo_info.repo_path}'")
+        if err is None:
+            old_url = output["stdout"].split('\n')[0]
+            if old_url == replica_url:
+                self.log.debug(f"replica [{replica_name}] already exists in [{repo_info.repo_path}]")
+                return True
+
+            output, err = self.run_command("git", "remote", "set-url",
+                                           replica_name,
+                                           replica_url, cwd=repo_info.repo_path)
+
+            if err is not None:
+                self.log_cmd_err(f"cannot perform set-url on [{replica_name}]", output, err)
+                return False
+
+            self.log.debug(f"replica [{replica_name}] url updated from [{old_url}] to [{replica_url}]")
             return True
 
-        output, err = self.run_command("git", "remote", "set-url",
+        output, err = self.run_command("git", "remote", "add", "--mirror",
                                        replica_name,
                                        replica_url, cwd=repo_info.repo_path)
 
