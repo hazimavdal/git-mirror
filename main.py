@@ -382,12 +382,11 @@ if __name__ == "__main__":
         errors = 0
         manf(repos, args.func, app, logger, errors)
 
-        sys.exit(errors)
-
         count = 'no' if errors == 0 else str(errors)
         plural = '' if errors == 1 else 's'
-
         logger.info(msg=f"Finished with {count} error{plural}")
+
+        sys.exit(errors)
     except Exception as err:
         logger.error(err)
         sys.exit(1)
