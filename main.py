@@ -89,7 +89,7 @@ class App:
 
         err = None
         if exec.returncode != 0:
-            err = Exception(f"'{cmd}' command exited with status {exec.returncode}")
+            err = Exception(f"[{cmd}] command exited with status {exec.returncode}")
 
         return {'stdout': exec.stdout, 'stderr': exec.stderr}, err
 
@@ -150,16 +150,16 @@ class App:
     def clone_mirror(self, repo_info):
         start_time = datetime.now()
 
-        self.log.info(f"cloning mirror repo '{repo_info.repo_name}' with origin='{repo_info.origin}' into '{repo_info.repo_dir}'")
+        self.log.info(f"cloning mirror repo [{repo_info.repo_name}] with origin=[{repo_info.origin}] into [{repo_info.repo_dir}]")
 
         output, err = self.run_command("git", "clone", "--mirror", repo_info.origin, repo_info.repo_name, cwd=repo_info.repo_dir)
 
         if err is not None:
-            self.log_cmd_err(f"cannot clone mirror for '{repo_info.repo_name}'", output, err)
+            self.log_cmd_err(f"cannot clone mirror for [{repo_info.repo_name}]", output, err)
             return False
 
         duration = str(datetime.now() - start_time)
-        self.log.info(f"cloned mirror repo '{repo_info.repo_name}' with origin='{repo_info.origin}' into '{repo_info.repo_dir}'. Took '{duration}'")
+        self.log.info(f"cloned mirror repo [{repo_info.repo_name}] with origin=[{repo_info.origin}] into [{repo_info.repo_dir}]. Took [{duration}]")
 
         return True
 
@@ -189,40 +189,40 @@ class App:
                                        replica_url, cwd=repo_info.repo_path)
 
         if err is not None:
-            self.log_cmd_err(f"cannot add replica '{replica_name}' to '{repo_info.repo_path}'", output, err)
+            self.log_cmd_err(f"cannot add replica [{replica_name}] to [{repo_info.repo_path}]", output, err)
             return False
 
-        self.log.info(f"added replica '{replica_name}:{replica_url}' to '{repo_info.repo_path}'")
+        self.log.info(f"added replica [{replica_name}:{replica_url}] to [{repo_info.repo_path}]")
 
         repo_info.replicas[replica_name] = replica_url
 
         return True
 
     def sync(self, repo_info):
-        self.log.info(f"fetching '{repo_info.repo_path}' origin")
+        self.log.info(f"fetching [{repo_info.repo_path}] origin")
 
         start_time = datetime.now()
         output, err = self.run_command("git",  "fetch", "--prune", "origin", cwd=repo_info.repo_path)
 
         if err is not None:
-            self.log_cmd_err(f"cannot fetch '{repo_info.repo_path}'", output, err)
+            self.log_cmd_err(f"cannot fetch [{repo_info.repo_path}]", output, err)
             return 1
 
-        self.log.info(f"fetched '{repo_info.repo_path}'. Took '{str(datetime.now()-start_time)}'")
+        self.log.info(f"fetched [{repo_info.repo_path}]. Took [{str(datetime.now()-start_time)}]")
 
         err_count = 0
         for replica in repo_info.replicas:
-            self.log.info(f"pushing to '{replica}' replica of '{repo_info.repo_path}'")
+            self.log.info(f"pushing to [{replica}] replica of [{repo_info.repo_path}]")
 
             start_time = datetime.now()
             output, err = self.run_command("git", "push", "--mirror", replica, cwd=repo_info.repo_path)
 
             if err is not None:
-                self.log_cmd_err(f"cannot push to replica '{replica}' of '{repo_info.repo_path}'", output, err)
+                self.log_cmd_err(f"cannot push to replica [{replica}] of [{repo_info.repo_path}]", output, err)
                 err_count += 1
                 continue
 
-            self.log.info(f"pushed to replica '{replica}' of '{repo_info.repo_path}'. Took '{str(datetime.now()-start_time)}'")
+            self.log.info(f"pushed to replica [{replica}] of [{repo_info.repo_path}]. Took [{str(datetime.now()-start_time)}]")
 
         return err_count
 
@@ -238,25 +238,25 @@ def load_manifest(filename):
 
     for repo, man in repos.items():
         if type(man) is not dict:
-            return None, Exception(f"expected '{repo}' repo definition to be a map, got {type(man).__name__}")
+            return None, Exception(f"expected [{repo}] repo definition to be a map, got [{type(man).__name__}]")
 
         if "origin" not in man:
-            return None, Exception(f"missing 'origin' field from '{repo}' repo definition")
+            return None, Exception(f"missing [origin] field from [{repo}] repo definition")
 
         origin_tau = type(man["origin"])
         if origin_tau is not str:
-            return None, Exception(f"expected 'origin' field of '{repo}' repo to be a string, got {origin_tau.__name__}")
+            return None, Exception(f"expected [origin] field of [{repo}] repo to be a string, got [{origin_tau.__name__}]")
 
         if "replicas" not in man:
-            return None, Exception(f"missing 'replicas' field from '{repo}' repo definition")
+            return None, Exception(f"missing [replicas] field from [{repo}] repo definition")
 
         replicas_tau = type(man["replicas"])
         if replicas_tau is not dict:
-            return None, Exception(f"expected 'replicas' field of '{repo}' repo to be a map, got {replicas_tau.__name__}")
+            return None, Exception(f"expected [replicas] field of [{repo}] repo to be a map, got [{replicas_tau.__name__}]")
 
         for k, v in man["replicas"].items():
             if type(v) is not str:
-                return None, Exception(f"expected replica '{k}' of '{repo}' repo to be a string, got {type(v).__name__}")
+                return None, Exception(f"expected replica [{k}] of [{repo}] repo to be a string, got [{type(v).__name__}]")
 
     return repos, None
 
@@ -282,25 +282,25 @@ def do_mirror(repo_info, app, logger, errors):
     app.set_alias_info(args.repo_dir, repo_info)
 
     if not repo_info.exists:
-        logger.debug(f"repo '{repo_info.repo_name}' does not exist and no aliases found. Trying to clone it")
+        logger.debug(f"repo [{repo_info.repo_name}] does not exist and no aliases found. Trying to clone it")
 
         if not app.clone_mirror(repo_info):
             errors += 1
             return True
     else:
         if repo_info.is_alias:
-            logger.info(f"aliasing '{old_name}' as '{repo_info.repo_name}'")
+            logger.info(f"aliasing [{old_name}] as [{repo_info.repo_name}]")
 
-        logger.debug(f"repo '{repo_info.repo_name}' is already cloned at '{repo_info.repo_path}'")
+        logger.debug(f"repo [{repo_info.repo_name}] is already cloned at [{repo_info.repo_path}]")
 
     for name, url in repo_info.replicas.items():
         if app.ls_remote(url) is None:
-            logger.info(f"remote repo [{name}] doesn't exist at [{url}]")
+            logger.info(f"replica [{name}] of [{repo_info.repo_name}] doesn't exist at [{url}]")
             err = app.create_remote(url)
             if err is None:
-                logger.info(f"created remote repo [{name}] at [{url}]")
+                logger.info(f"created repo for replica [{name}] of [{repo_info.repo_name}] at [{url}]")
             else:
-                logger.info(f"couldn't create remote repo [{name}] at [{url}] due to [{err}]")
+                logger.info(f"couldn't create repo for replica [{name}] of [{repo_info.repo_name}] at [{url}] due to [{err}]")
                 continue
 
         if not app.add_replica(repo_info, name, url):
@@ -318,8 +318,8 @@ def do_integrity(repo_info, app, logger, errors):
         replica_hash = app.ls_remote(url)
         if replica_hash != origin_hash:
             errors += 1
-            msg = f"head of repo '{repo_info.repo_name}' is at '{origin_hash}'"
-            msg += f" but its replica '{name}' is at '{replica_hash}'"
+            msg = f"head of repo [{repo_info.repo_name}] is at [{origin_hash}]"
+            msg += f" but its replica [{name}] is at [{replica_hash}]"
             logger.error(msg)
 
 
@@ -350,7 +350,7 @@ if __name__ == "__main__":
     log_level = args.log_level.upper()
     if log_level not in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']:
         log_level = "INFO"
-        print(f"log level value '{args.log_level}' is invalid. Setting it to [{log_level}]")
+        print(f"log level value [{args.log_level}] is invalid. Setting it to [{log_level}]")
 
     logger.setLevel(log_level)
 
