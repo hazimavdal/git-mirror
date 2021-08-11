@@ -314,6 +314,11 @@ def do_mirror(repo_info, app, logger, errors):
 def do_integrity(repo_info, app, logger, errors):
     origin_hash = app.ls_remote(repo_info.origin)
 
+    if origin_hash is None:
+        logger.error(f"repo [{repo_info.repo_name}] does not exist")
+        errors += 1
+        return
+
     for name, url in repo_info.replicas.items():
         replica_hash = app.ls_remote(url)
         if replica_hash != origin_hash:
