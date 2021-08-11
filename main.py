@@ -22,6 +22,21 @@ def make_parents(filename, dir=False):
 
 
 def get_logger(filename):
+    class WrappedLogger(logging.Logger):
+        def __init__(self, name, level=logging.NOTSET):
+            self._error_count = 0
+            super(WrappedLogger, self).__init__(name, level)
+
+        @property
+        def error_count(self):
+            return self._error_count
+
+        def error(self, msg, *args, **kwargs):
+            self._error_count += 1
+            return super(WrappedLogger, self).error(msg, *args, **kwargs)
+
+    logging.setLoggerClass(WrappedLogger)
+
     make_parents(filename)
 
     log_formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(filename)s:%(lineno)d - %(message)s')
@@ -277,7 +292,7 @@ def manf(man, f, *args):
             break
 
 
-def do_mirror(repo_info, app, logger, errors):
+def do_mirror(repo_info, app, logger):
     old_name = repo_info.repo_name
     app.set_alias_info(args.repo_dir, repo_info)
 
@@ -285,7 +300,6 @@ def do_mirror(repo_info, app, logger, errors):
         logger.debug(f"repo [{repo_info.repo_name}] does not exist and no aliases found. Trying to clone it")
 
         if not app.clone_mirror(repo_info):
-            errors += 1
             return True
     else:
         if repo_info.is_alias:
@@ -303,29 +317,28 @@ def do_mirror(repo_info, app, logger, errors):
                 logger.info(f"couldn't create repo for replica [{name}] of [{repo_info.repo_name}] at [{url}] due to [{err}]")
                 continue
 
-        if not app.add_replica(repo_info, name, url):
-            errors += 1
+        app.add_replica(repo_info, name, url)
 
-    errors += app.sync(repo_info)
+    app.sync(repo_info)
 
     return True
 
 
-def do_integrity(repo_info, app, logger, errors):
+def do_integrity(repo_info, app, logger):
     origin_hash = app.ls_remote(repo_info.origin)
 
     if origin_hash is None:
-        logger.error(f"repo [{repo_info.repo_name}] does not exist")
-        errors += 1
-        return
+        logger.error(f"repo [{repo_info.repo_name}:{repo_info.origin}] does not exist")
+        return True
 
     for name, url in repo_info.replicas.items():
         replica_hash = app.ls_remote(url)
         if replica_hash != origin_hash:
-            errors += 1
             msg = f"head of repo [{repo_info.repo_name}] is at [{origin_hash}]"
             msg += f" but its replica [{name}] is at [{replica_hash}]"
             logger.error(msg)
+
+    return True
 
 
 if __name__ == "__main__":
@@ -359,8 +372,6 @@ if __name__ == "__main__":
 
     logger.setLevel(log_level)
 
-    errors = 0
-
     try:
         app = App(logger, args.dry_run)
 
@@ -384,14 +395,13 @@ if __name__ == "__main__":
         if getattr(args, 'repo_dir', None):
             make_parents(args.repo_dir, True)
 
-        errors = 0
-        manf(repos, args.func, app, logger, errors)
+        manf(repos, args.func, app, logger)
 
-        count = 'no' if errors == 0 else str(errors)
-        plural = '' if errors == 1 else 's'
+        count = 'no' if logger.error_count == 0 else str(logger.error_count)
+        plural = '' if logger.error_count == 1 else 's'
         logger.info(f"Finished with {count} error{plural}")
 
-        sys.exit(errors)
+        sys.exit(logger.error_count)
     except Exception as err:
         logger.error(err)
         sys.exit(1)
