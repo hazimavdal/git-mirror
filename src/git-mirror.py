@@ -60,11 +60,9 @@ class RepoInfo:
         self.repo_name = None
         self.repo_path = None
         self.exists = False
-        self.is_alias = False
 
         self.origin = None
         self.replicas = {}
-        self.aliases = []
 
 
 class App:
@@ -137,26 +135,6 @@ class App:
 
         except Exception as err:
             return err
-
-    def set_alias_info(self, repo_dir, info):
-        info.repo_dir = repo_dir
-        info.repo_path = os.path.join(repo_dir, info.repo_name)
-        info.exists = os.path.exists(info.repo_path)
-        info.is_alias = False
-
-        if info.exists:
-            return
-
-        for name in info.aliases:
-            repo_path = os.path.join(repo_dir, name)
-
-            if os.path.exists(repo_path):
-                info.repo_name = name
-                info.repo_path = repo_path
-                info.is_alias = True
-                info.exists = True
-
-                return
 
     def clone_mirror(self, repo_info):
         start_time = datetime.now()
@@ -282,25 +260,22 @@ def manf(man, f, *args):
         repo.repo_name = repo_name
         repo.origin = info["origin"]
         repo.replicas = info["replicas"]
-        repo.aliases = info.get("aliases", [])
 
         if not f(repo, *args):
             break
 
 
-def do_mirror(repo_info, app, logger):
-    old_name = repo_info.repo_name
-    app.set_alias_info(args.repo_dir, repo_info)
+def do_mirror(repo_info, app, logger, args):
+    repo_info.repo_dir = args.repo_dir
+    repo_info.repo_path = os.path.join(repo_info.repo_dir, repo_info.repo_name)
+    repo_info.exists = os.path.exists(repo_info.repo_path)
 
     if not repo_info.exists:
-        logger.debug(f"repo [{repo_info.repo_name}] does not exist and no aliases found. Trying to clone it")
+        logger.debug(f"repo [{repo_info.repo_name}] does not exist. Trying to clone it")
 
         if not app.clone_mirror(repo_info):
             return True
     else:
-        if repo_info.is_alias:
-            logger.info(f"aliasing [{old_name}] as [{repo_info.repo_name}]")
-
         logger.debug(f"repo [{repo_info.repo_name}] is already cloned at [{repo_info.repo_path}]")
 
     for name, url in repo_info.replicas.items():
@@ -320,7 +295,7 @@ def do_mirror(repo_info, app, logger):
     return True
 
 
-def do_integrity(repo_info, app, logger):
+def do_integrity(repo_info, app, logger, _):
     origin_hash = app.ls_remote(repo_info.origin)
 
     if origin_hash is None:
@@ -391,7 +366,7 @@ if __name__ == "__main__":
         if getattr(args, 'repo_dir', None):
             make_parents(args.repo_dir, True)
 
-        manf(repos, args.func, app, logger)
+        manf(repos, args.func, app, logger, args)
 
         count = 'no' if logger.error_count == 0 else str(logger.error_count)
         plural = '' if logger.error_count == 1 else 's'
