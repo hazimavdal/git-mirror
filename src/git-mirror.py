@@ -334,6 +334,10 @@ if __name__ == "__main__":
 
     args = root.parse_args()
 
+    if not getattr(args, "func", None):
+        root.print_usage()
+        sys.exit(1)
+
     logger = get_logger(args.log_file)
 
     log_level = args.log_level.upper()
