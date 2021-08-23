@@ -54,10 +54,6 @@ def get_logger(filename):
     return logger
 
 
-def raise_alert(message):
-    pass
-
-
 class RepoInfo:
     def __init__(self):
         self.repo_dir = None
