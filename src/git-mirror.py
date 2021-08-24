@@ -325,7 +325,6 @@ if __name__ == "__main__":
 
     parent_parser = argparse.ArgumentParser(add_help=False)
 
-    parent_parser.add_argument('-u', '--update-manifest', action="store_true")
     parent_parser.add_argument('-m', '--manifest', default="repos.json")
     parent_parser.add_argument('-v', '--log-level', default="info")
     parent_parser.add_argument('-l', '--log-file', default=f".logs/{APP_NAME}.log")
@@ -360,18 +359,6 @@ if __name__ == "__main__":
         if err is not None:
             logger.fatal(f"cannot load manifest file due to err=[{err}]")
             sys.exit(1)
-
-        if args.update_manifest:
-            # If the manifest is source-controlled, pull the latest
-            manifest_repo = os.path.dirname(args.manifest) or '.'
-            _, err = app.run_command("test", "-d", ".git", cwd=manifest_repo)
-            if err is None:
-                logger.info("manifest is located in a git repository. Will try to update it")
-                output, err = app.run_command("git", "pull", cwd=manifest_repo)
-                if err is not None:
-                    app.log_cmd_err("couldn't pull the manifest repo", output, err)
-                else:
-                    logger.info("updated manifest repo")
 
         if getattr(args, 'repo_dir', None):
             make_parents(args.repo_dir, True)
