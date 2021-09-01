@@ -83,7 +83,7 @@ class App:
         self.gitlab_client = gitlab.Gitlab("https://gitlab.com",
                                            private_token=config("GITLAB_TOKEN"))
 
-        self.gitlab_namespace = config("GITLAB_NAMESPACE")
+        self.gitlab_namespace = config("GITLAB_NAMESPACE", None)
 
     def run_command(self, cmd, *args, cwd=None):
         if self.dry_run:
