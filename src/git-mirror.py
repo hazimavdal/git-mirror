@@ -79,12 +79,6 @@ class App:
         if self.dry_run:
             self.log.info("starting in dry-run mode")
 
-        self.codecommit_client = boto3.client("codecommit")
-        self.gitlab_client = gitlab.Gitlab("https://gitlab.com",
-                                           private_token=config("GITLAB_TOKEN"))
-
-        self.gitlab_namespace = config("GITLAB_NAMESPACE", None)
-
     def run_command(self, cmd, *args, cwd=None):
         if self.dry_run:
             self.log.info(f"dry running command: {[cmd] + list(args)}")
@@ -125,17 +119,33 @@ class App:
 
         return match.group(0)
 
+    def _init_gitlab(self):
+        if getattr(self, "gitlab_client", None) and getattr(self, "gitlab_namespace", None):
+            return
+
+        self.gitlab_client = gitlab.Gitlab("https://gitlab.com",
+                                           private_token=config("GITLAB_TOKEN"))
+
+        self.gitlab_namespace = config("GITLAB_NAMESPACE", None)
+
+    def _init_codecommit(self):
+        if getattr(self, "codecommit_client", None):
+            return
+
+        self.codecommit_client = boto3.client("codecommit")
+
     def create_remote(self, url):
         repo_name = os.path.splitext(os.path.basename(url))[0]
         try:
             if "gitlab" in url:
+                self._init_gitlab()
                 self.gitlab_client.projects.create({
                     "name": repo_name,
                     "namespace_id": self.gitlab_namespace
                 })
             elif "codecommit" in url:
+                self._init_codecommit()
                 self.codecommit_client.create_repository(repositoryName=repo_name)
-
             else:
                 return Exception(f"Unknown replication server at [{url}]")
 
