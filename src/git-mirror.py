@@ -319,7 +319,7 @@ def do_integrity(repo_info, app, logger, _):
         return True
 
     for name, url in repo_info.replicas.items():
-        replica_hash = app.ls_remote(url)
+        replica_hash = app.ls_remote(url) or app.ls_remote(url, ref="main")
         if replica_hash != origin_hash:
             msg = f"head of repo [{repo_info.repo_name}] is at [{origin_hash}]"
             msg += f" but its replica [{name}] is at [{replica_hash}]"
