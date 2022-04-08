@@ -324,6 +324,8 @@ def do_integrity(repo_info, app, logger, _):
             msg = f"head of repo [{repo_info.repo_name}] is at [{origin_hash}]"
             msg += f" but its replica [{name}] is at [{replica_hash}]"
             logger.error(msg)
+        else:
+            logger.debug(f"replica [{name}] of [{repo_info.repo_name}] is in sync")
 
     return True
 
