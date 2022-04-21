@@ -6,5 +6,5 @@ class Provider(ABC):
     def match(self, url: str) -> bool():
         raise NotImplementedError()
 
-    def create_repo(self, name: str) -> str:
+    def create_repo(self, url: str) -> str:
         raise NotImplementedError()

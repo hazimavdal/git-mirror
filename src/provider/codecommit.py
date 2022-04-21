@@ -9,6 +9,7 @@ class CodeCommit(Provider):
     def match(self, url: str) -> bool:
         return "codecommit" in url
 
-    def create_repo(self, name: str) -> str:
+    def create_repo(self, url: str) -> str:
+        name = os.path.splitext(os.path.basename(url))[0]
         metadata = self.client.create_repository(repositoryName=name)
         return metadata["repositoryMetadata"]["cloneUrlHttp"]

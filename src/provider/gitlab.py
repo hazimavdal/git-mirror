@@ -11,7 +11,9 @@ class Gitlab(Provider):
     def match(self, url: str) -> bool:
         return "gitlab" in url
 
-    def create_repo(self, name: str) -> str:
+    def create_repo(self, url: str) -> str:
+        name = os.path.splitext(os.path.basename(url))[0]
+
         return self.client.projects.create({
             "name": name,
             "namespace_id": self.namespace

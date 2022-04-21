@@ -148,11 +148,10 @@ class App:
         self.codecommit_client = boto3.client("codecommit")
 
     def create_remote(self, url):
-        repo_name = os.path.splitext(os.path.basename(url))[0]
         try:
             for provider in self.providers:
                 if provider.match(url):
-                    return None, provider.create_repo(repo_name)
+                    return None, provider.create_repo(url)
 
             raise Exception(f"no provider found for url=[{url}]")
         except Exception as err:
