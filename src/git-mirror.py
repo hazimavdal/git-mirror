@@ -13,6 +13,9 @@ from decouple import config
 from logging import handlers
 from datetime import datetime
 
+from provider.gitlab import Gitlab
+from provider.codecommit import CodeCommit
+
 APP_NAME = "git-mirror"
 
 
@@ -79,6 +82,16 @@ class App:
         if self.dry_run:
             self.log.info("starting in dry-run mode")
 
+        self.providers = []
+        if config("GIT_MIRROR_USE_GITLAB", True):
+            provider = Gitlab(config("GITLAB_NAMESPACE"),
+                              config("GITLAB_TOKEN"))
+
+            self.providers.append(provider)
+
+        if config("GIT_MIRROR_USE_CODECOMMIT", True):
+            self.providers.append(CodeCommit())
+
     def run_command(self, cmd, *args, cwd=None):
         if self.dry_run:
             self.log.info(f"dry running command: {[cmd] + list(args)}")
@@ -137,20 +150,13 @@ class App:
     def create_remote(self, url):
         repo_name = os.path.splitext(os.path.basename(url))[0]
         try:
-            if "gitlab" in url:
-                self._init_gitlab()
-                self.gitlab_client.projects.create({
-                    "name": repo_name,
-                    "namespace_id": self.gitlab_namespace
-                })
-            elif "codecommit" in url:
-                self._init_codecommit()
-                self.codecommit_client.create_repository(repositoryName=repo_name)
-            else:
-                return Exception(f"Unknown replication server at [{url}]")
+            for provider in self.providers:
+                if provider.match(url):
+                    return None, provider.create_repo(repo_name)
 
+            raise Exception(f"no provider found for url=[{url}]")
         except Exception as err:
-            return err
+            return err, ""
 
     def clone_mirror(self, repo_info):
         start_time = datetime.now()
@@ -297,9 +303,9 @@ def do_mirror(repo_info, app, logger, args):
     for name, url in repo_info.replicas.items():
         if app.ls_remote(url) is None:
             logger.info(f"replica [{name}] of [{repo_info.repo_name}] doesn't exist at [{url}]")
-            err = app.create_remote(url)
+            err, remote_url = app.create_remote(url)
             if err is None:
-                logger.info(f"created repo for replica [{name}] of [{repo_info.repo_name}] at [{url}]")
+                logger.info(f"created repo for replica [{name}] of [{repo_info.repo_name}] at [{remote_url}]")
             else:
                 logger.info(f"couldn't create repo for replica [{name}] of [{repo_info.repo_name}] at [{url}] due to [{err}]")
                 continue

@@ -1,0 +1,14 @@
+import boto3
+from provider import Provider
+
+
+class CodeCommit(Provider):
+    def __init__(self):
+        self.client = boto3.client("codecommit")
+
+    def match(self, url: str) -> bool:
+        return "codecommit" in url
+
+    def create_repo(self, name: str) -> str:
+        metadata = self.client.create_repository(repositoryName=name)
+        return metadata["repositoryMetadata"]["cloneUrlHttp"]
