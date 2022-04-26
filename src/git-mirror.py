@@ -83,13 +83,13 @@ class App:
             self.log.info("starting in dry-run mode")
 
         self.providers = []
-        if config("GIT_MIRROR_USE_GITLAB", True):
+        if config("GIT_MIRROR_USE_GITLAB", default=False):
             provider = Gitlab(config("GITLAB_NAMESPACE"),
                               config("GITLAB_TOKEN"))
 
             self.providers.append(provider)
 
-        if config("GIT_MIRROR_USE_CODECOMMIT", True):
+        if config("GIT_MIRROR_USE_CODECOMMIT", default=False):
             self.providers.append(CodeCommit())
 
     def run_command(self, cmd, *args, cwd=None):
