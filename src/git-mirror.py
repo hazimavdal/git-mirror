@@ -88,9 +88,11 @@ class App:
                               config("GITLAB_TOKEN"))
 
             self.providers.append(provider)
+            self.log.info(f"using gitlab provider")
 
         if config("GIT_MIRROR_USE_CODECOMMIT", default=False):
             self.providers.append(CodeCommit())
+            self.log.info(f"using codecommit provider")
 
     def run_command(self, cmd, *args, cwd=None):
         if self.dry_run:
