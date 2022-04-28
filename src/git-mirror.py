@@ -4,8 +4,6 @@ import re
 import sys
 import json
 import time
-import boto3
-import gitlab
 import logging
 import argparse
 import subprocess as proc
@@ -133,21 +131,6 @@ class App:
             return ""  # empty repo (no commits)
 
         return match.group(0)
-
-    def _init_gitlab(self):
-        if getattr(self, "gitlab_client", None) and getattr(self, "gitlab_namespace", None):
-            return
-
-        self.gitlab_client = gitlab.Gitlab("https://gitlab.com",
-                                           private_token=config("GITLAB_TOKEN"))
-
-        self.gitlab_namespace = config("GITLAB_NAMESPACE", None)
-
-    def _init_codecommit(self):
-        if getattr(self, "codecommit_client", None):
-            return
-
-        self.codecommit_client = boto3.client("codecommit")
 
     def create_remote(self, url):
         try:
