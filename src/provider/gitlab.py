@@ -18,4 +18,4 @@ class Gitlab(Provider):
         return self.client.projects.create({
             "name": name,
             "namespace_id": self.namespace
-        })["ssh_url_to_repo"]
+        }).ssh_url_to_repo
