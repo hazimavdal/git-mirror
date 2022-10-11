@@ -34,13 +34,13 @@ If you expect the script to create mirror repositories that do not exist (that i
 
 ```json
 {
-    "git-mirror": {
+    "my-repo": {
         "description": "A script for one-way repo mirroring, supports Github, Gitlab, and CodeCommit",
         "skip": false,
         "origin": "git@github.com:hazimavdal/git-mirror.git",
         "replicas": {
-            "gitlab": "git@gitlab.com:replica-set-01/legacy-photos-replica01.git",
-            "aws": "ssh://git-codecommit.us-east-2.amazonaws.com/v1/repos/git-mirror-replica02"
+            "gitlab": "git@gitlab.com:replica-set-01/my-repo-replica01.git",
+            "aws": "ssh://git-codecommit.us-east-2.amazonaws.com/v1/repos/my-repo-replica02"
         }
     },
     ...
@@ -51,7 +51,7 @@ If you expect the script to create mirror repositories that do not exist (that i
 }
 ```
 
-In this example we have the repository `git-mirror` whose origin is Github and it needs to be mirror to both Gitlab and CodeCommit. When the script is run, it will do the following:
+In this example we have the repository `my-repo` whose origin is Github and it needs to be mirror to both Gitlab and CodeCommit. When the script is run, it will do the following:
 
 1. Clone each repository in the manifest from the URL specified by `origin` (if it hasn't been cloned already). It is assumed the user running the script can `git clone` that repo.
 
@@ -96,4 +96,4 @@ I run this script as a cron job on a VM that keeps my repos of interest in sync 
 
 ## Known issues
 
-- The CodeCommit API ignores everything after a period (`.`) the name of a repository that is being created. For example, if you attempt to create the repo `hello.world`, it will be created as `hello`, not `hello.world`. The script will fail in this case. However, if the repository already exists (i.e. not created through the script), then it works without issue.
+- The CodeCommit API ignores everything after a period (`.`) in the name of the repository that is being created. For example, if you attempt to create the repo `hello.world`, it will be created as `hello`, not `hello.world`. The script will fail in this case. However, if the repository already exists (i.e. not created through the script), then it works without issue.
