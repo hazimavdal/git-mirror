@@ -51,7 +51,7 @@ If you expect the script to create mirror repositories that do not exist (that i
 }
 ```
 
-In this example we have the repository `my-repo` whose origin is Github and it needs to be mirror to both Gitlab and CodeCommit. When the script is run, it will do the following:
+In this example we have the repository `my-repo` whose origin is Github and it needs to be mirrored to both Gitlab and CodeCommit. When the script is run, it will do the following:
 
 1. Clone each repository in the manifest from the URL specified by `origin` (if it hasn't been cloned already). It is assumed the user running the script can `git clone` that repo.
 
