@@ -166,6 +166,16 @@ class App:
 
         return match.group(0)
 
+    def delete_remote(self, url):
+        try:
+            for provider in self.providers:
+                if provider.match(url):
+                    return provider.delete_repo(url)
+
+            raise Exception(f"no provider found for url=[{url}]")
+        except Exception as err:
+            return err
+
     def create_remote(self, url):
         try:
             for provider in self.providers:
@@ -338,6 +348,15 @@ def do_integrity(repo_info, app, logger, _):
     return True
 
 
+def do_purge(repo_info: RepoInfo, app: App, logger, args):
+    for target, url in repo_info.replicas.items():
+        if target == args.target:
+            if app.delete_remote(url):
+                logger.info(f"Deleted {url}")
+
+    return True
+
+
 if __name__ == "__main__":
     root = argparse.ArgumentParser(description='Automate repo mirroring')
 
@@ -356,6 +375,10 @@ if __name__ == "__main__":
 
     integrity_parser = sub_parsers.add_parser("integrity", parents=[parent_parser])
     integrity_parser.set_defaults(func=do_integrity)
+
+    purge_parser = sub_parsers.add_parser("purge", parents=[parent_parser])
+    purge_parser.add_argument('-t', '--target', required=True, choices=["gitlab", "aws"])
+    purge_parser.set_defaults(func=do_purge)
 
     args = root.parse_args()
 
@@ -391,5 +414,6 @@ if __name__ == "__main__":
 
         sys.exit(logger.error_count)
     except Exception as err:
+        raise err
         logger.error(err)
         sys.exit(1)

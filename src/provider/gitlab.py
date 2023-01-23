@@ -19,3 +19,14 @@ class Gitlab(Provider):
             "name": name,
             "namespace_id": self.namespace
         }).ssh_url_to_repo
+
+    def delete_repo(self, url: str) -> bool:
+        guid = os.path.splitext(os.path.basename(url))[0]
+
+        projects = self.client.projects.list(owned=True)
+        for proj in projects:
+            if proj.name == guid:
+                proj.delete()
+                return True
+
+        return False

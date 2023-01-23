@@ -8,3 +8,6 @@ class Provider(ABC):
 
     def create_repo(self, url: str) -> str:
         raise NotImplementedError()
+
+    def delete_repo(self, url: str) -> str:
+        raise NotImplementedError()
