@@ -167,14 +167,11 @@ class App:
         return match.group(0)
 
     def delete_remote(self, url):
-        try:
-            for provider in self.providers:
-                if provider.match(url):
-                    return provider.delete_repo(url)
+        for provider in self.providers:
+            if provider.match(url):
+                return provider.delete_repo(url)
 
-            raise Exception(f"no provider found for url=[{url}]")
-        except Exception as err:
-            return err
+        raise Exception(f"no provider found for url=[{url}]")
 
     def create_remote(self, url):
         try:
@@ -351,6 +348,7 @@ def do_integrity(repo_info, app, logger, _):
 def do_purge(repo_info: RepoInfo, app: App, logger, args):
     for target, url in repo_info.replicas.items():
         if target == args.target:
+            logger.info(f"Purging {url}")
             if app.delete_remote(url):
                 logger.info(f"Deleted {url}")
 
@@ -414,6 +412,5 @@ if __name__ == "__main__":
 
         sys.exit(logger.error_count)
     except Exception as err:
-        raise err
         logger.error(err)
         sys.exit(1)

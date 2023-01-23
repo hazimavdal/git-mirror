@@ -14,3 +14,8 @@ class CodeCommit(Provider):
         name = os.path.splitext(os.path.basename(url))[0]
         metadata = self.client.create_repository(repositoryName=name)
         return metadata["repositoryMetadata"]["cloneUrlHttp"]
+
+    def delete_repo(self, url: str) -> bool:
+        name = os.path.splitext(os.path.basename(url))[0]
+        metadata = self.client.delete_repository(repositoryName=name)
+        return metadata["ResponseMetadata"]["RequestId"] != ""
