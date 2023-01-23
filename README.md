@@ -33,8 +33,9 @@ If you expect the script to create mirror repositories that do not exist (that i
 `git-mirror` takes as input a manifest file listing the repositories that need to be mirrored, structured as the following example:
 
 ```json
-{
-    "my-repo": {
+[
+    {
+        "guid": "my-repo",
         "description": "A script for one-way repo mirroring, supports Github, Gitlab, and CodeCommit",
         "skip": false,
         "origin": "git@github.com:hazimavdal/git-mirror.git",
@@ -42,13 +43,8 @@ If you expect the script to create mirror repositories that do not exist (that i
             "gitlab": "git@gitlab.com:replica-set-01/my-repo-replica01.git",
             "aws": "ssh://git-codecommit.us-east-2.amazonaws.com/v1/repos/my-repo-replica02"
         }
-    },
-    ...
-    "another repo": {
-        ...
     }
-    ...
-}
+]
 ```
 
 In this example we have the repository `my-repo` whose origin is Github and it needs to be mirrored to both Gitlab and CodeCommit. When the script is run, it will do the following:

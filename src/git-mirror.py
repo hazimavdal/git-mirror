@@ -13,6 +13,40 @@ from datetime import datetime
 
 from provider.gitlab import Gitlab
 from provider.codecommit import CodeCommit
+import cerberus as cer
+
+
+repo_schema = {
+    "guid": {
+        "type": "string",
+        "required": True,
+        "regex": r"[a-z][a-z-]{2,}"
+    },
+    "origin": {
+        "type": "string",
+        "required": True,
+    },
+    "description": {
+        "type": "string",
+        "required": False,
+    },
+    "skip": {
+        "type": "boolean",
+        "default": False,
+    },
+    "replicas": {
+        "type": "dict",
+        "keysrules": {
+                "type": "string",
+            "regex": "[a-z]+"
+        },
+        "valuesrules": {
+            "type": "string",
+            "required": True
+        },
+    },
+}
+
 
 APP_NAME = "git-mirror"
 
@@ -223,7 +257,7 @@ class App:
 
 
 def load_manifest(filename):
-    repos = {}
+    repos = []
 
     try:
         with open(filename) as f:
@@ -231,43 +265,27 @@ def load_manifest(filename):
     except Exception as err:
         return None, err
 
-    for repo, man in repos.items():
-        if type(man) is not dict:
-            return None, Exception(f"expected [{repo}] repo definition to be a map, got [{type(man).__name__}]")
-
-        if "origin" not in man:
-            return None, Exception(f"missing [origin] field from [{repo}] repo definition")
-
-        origin_tau = type(man["origin"])
-        if origin_tau is not str:
-            return None, Exception(f"expected [origin] field of [{repo}] repo to be a string, got [{origin_tau.__name__}]")
-
-        if "replicas" not in man:
-            return None, Exception(f"missing [replicas] field from [{repo}] repo definition")
-
-        replicas_tau = type(man["replicas"])
-        if replicas_tau is not dict:
-            return None, Exception(f"expected [replicas] field of [{repo}] repo to be a map, got [{replicas_tau.__name__}]")
-
-        for k, v in man["replicas"].items():
-            if type(v) is not str:
-                return None, Exception(f"expected replica [{k}] of [{repo}] repo to be a string, got [{type(v).__name__}]")
+    if type(repos) is not list:
+        return None, Exception(f"expected a list of repo definitions, got {type(repos).__name__}")
+    for repo in repos:
+        validator = cer.Validator()
+        if not validator.validate(repo, repo_schema):
+            return None, Exception(f"manifest failed schema validation due to [{validator.errors}]")
 
     return repos, None
 
 
-def manf(man, f, *args):
-    for repo_name, info in man.items():
-        repo = RepoInfo()
-
-        if info.get("skip"):
+def manf(repos, f, *args):
+    for repo in repos:
+        if repo.get("skip"):
             continue
 
-        repo.repo_name = repo_name
-        repo.origin = info["origin"]
-        repo.replicas = info["replicas"]
+        info = RepoInfo()
+        info.repo_name = repo.get("guid")
+        info.origin = repo.get("origin")
+        info.replicas = repo.get("replicas")
 
-        if not f(repo, *args):
+        if not f(info, *args):
             break
 
 
