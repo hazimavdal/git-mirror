@@ -152,19 +152,18 @@ class App:
     def log_cmd_err(self, msg, output, err):
         self.log.error(f"{msg} due to err=[{err}]. stdout=[{output['stdout']}], stderr=[{output['stderr']}]")
 
-    def ls_remote(self, repo, ref="HEAD"):
-        output, err = app.run_command("git", "ls-remote", repo, ref)
+    def repo_exists(self, repo):
+        head = app.ls_remote(repo).get("HEAD")
+        return head is not None and head != ""
+
+    def ls_remote(self, repo):
+        output, err = app.run_command("git", "ls-remote", repo)
 
         if err != None:
             self.log.debug(f"ls-remote failed with err=[{err}], output=[{output}]")
             return None
 
-        match = re.match(r"([a-f0-9]{40})", output["stdout"])
-
-        if not match:
-            return ""  # empty repo (no commits)
-
-        return match.group(0)
+        return {l[1]: l[0] for l in [line.split('\t') for line in output["stdout"].split("\n")] if len(l) == 2}
 
     def delete_remote(self, url):
         for provider in self.providers:
@@ -296,7 +295,7 @@ def manf(repos, f, *args):
             break
 
 
-def do_mirror(repo_info, app, logger, args):
+def do_mirror(repo_info, app: App, logger, args):
     repo_info.repo_dir = args.repo_dir
     repo_info.repo_path = os.path.join(repo_info.repo_dir, repo_info.repo_name)
     repo_info.exists = os.path.exists(repo_info.repo_path)
@@ -310,7 +309,7 @@ def do_mirror(repo_info, app, logger, args):
         logger.debug(f"repo [{repo_info.repo_name}] is already cloned at [{repo_info.repo_path}]")
 
     for name, url in repo_info.replicas.items():
-        if app.ls_remote(url) is None:
+        if not app.repo_exists(url):
             logger.info(f"replica [{name}] of [{repo_info.repo_name}] doesn't exist at [{url}]")
             err, remote_url = app.create_remote(url)
             if err is None:
@@ -326,19 +325,22 @@ def do_mirror(repo_info, app, logger, args):
     return True
 
 
-def do_integrity(repo_info, app, logger, _):
-    origin_hash = app.ls_remote(repo_info.origin)
+def do_integrity(repo_info, app: App, logger, _):
+    origin_branches = app.ls_remote(repo_info.origin)
 
-    if origin_hash is None:
+    if origin_branches is None:
         logger.error(f"repo [{repo_info.repo_name}:{repo_info.origin}] does not exist")
         return True
 
     for name, url in repo_info.replicas.items():
-        replica_hash = app.ls_remote(url) or app.ls_remote(url, ref="main")
-        if replica_hash != origin_hash:
-            msg = f"head of repo [{repo_info.repo_name}] is at [{origin_hash}]"
-            msg += f" but its replica [{name}] is at [{replica_hash}]"
-            logger.error(msg)
+        replica_branches = app.ls_remote(url)
+        if replica_branches is None:
+            logger.error(f"cannot ls-remote replica [{name}] of [{repo_info.repo_name}]")
+            return True
+
+        diff = set(origin_branches.items()) ^ set(replica_branches.items())
+        if len(diff) > 0:
+            logger.error(f"replica [{name}] differs from the origin of [{repo_info.repo_name}]: diff=[{diff}]")
         else:
             logger.info(f"replica [{name}] of [{repo_info.repo_name}] is in sync")
 
