@@ -20,7 +20,7 @@ repo_schema = {
     "guid": {
         "type": "string",
         "required": True,
-        "regex": r"[a-z][a-z-.]*\w"
+        "regex": r"[a-z][a-z-_]*\w"
     },
     "origin": {
         "type": "string",
