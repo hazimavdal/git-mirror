@@ -327,7 +327,8 @@ def do_mirror(repo_info, app: App, logger, args):
 
 def do_integrity(repo_info, app: App, logger, _):
     origin_branches = app.ls_remote(repo_info.origin)
-    del origin_branches["HEAD"]
+    if "HEAD" in origin_branches:
+        del origin_branches["HEAD"]
 
     if origin_branches is None:
         logger.error(f"repo [{repo_info.repo_name}:{repo_info.origin}] does not exist")
@@ -335,7 +336,8 @@ def do_integrity(repo_info, app: App, logger, _):
 
     for name, url in repo_info.replicas.items():
         replica_branches = app.ls_remote(url)
-        del replica_branches["HEAD"]
+        if "HEAD" in replica_branches:
+            del replica_branches["HEAD"]
 
         if replica_branches is None:
             logger.error(f"cannot ls-remote replica [{name}] of [{repo_info.repo_name}]")
