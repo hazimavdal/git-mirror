@@ -153,8 +153,8 @@ class App:
         self.log.error(f"{msg} due to err=[{err}]. stdout=[{output['stdout']}], stderr=[{output['stderr']}]")
 
     def repo_exists(self, repo):
-        head = app.ls_remote(repo).get("HEAD")
-        return head is not None and head != ""
+        head = app.ls_remote(repo)
+        return head is not None and head.get("HEAD") != ""
 
     def ls_remote(self, repo):
         output, err = app.run_command("git", "ls-remote", repo)
